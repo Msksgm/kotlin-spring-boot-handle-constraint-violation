@@ -3,8 +3,25 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
 	id("org.springframework.boot") version "3.2.2"
 	id("io.spring.dependency-management") version "1.1.4"
+	// Kotlin と Kotlin が利用する Spring Boot のバージョン。バージョンアップの際には両方とも更新する
 	kotlin("jvm") version "1.9.22"
 	kotlin("plugin.spring") version "1.9.22"
+
+	/**
+	 * detekt
+	 *
+	 * URL
+	 * - https://github.com/detekt/detekt
+	 * GradlePlugins(plugins.gradle.org)
+	 * - https://plugins.gradle.org/plugin/io.gitlab.arturbosch.detekt
+	 * Main用途
+	 * - Linter/Formatter
+	 * Sub用途
+	 * - 無し
+	 * 概要
+	 * KotlinのLinter/Formatter
+	 */
+	id("io.gitlab.arturbosch.detekt") version "1.23.5"
 }
 
 group = "com.example"
@@ -23,6 +40,16 @@ dependencies {
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+	/**
+	 * detektの拡張: detekt-formatting
+	 *
+	 * 概要
+	 * - formattingのルール
+	 * - 基本はktlintと同じ
+	 * - format自動適用オプションの autoCorrect が使えるようになる
+	 */
+	detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.4")
 }
 
 tasks.withType<KotlinCompile> {
@@ -34,4 +61,19 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+/**
+ * detektの設定
+ *
+ * 基本的に全て `detekt-override.yml` で設定する
+ */
+detekt {
+	/**
+	 * ./gradlew detektGenerateConfig でdetekt.ymlが生成される(バージョンが上がる度に再生成する)
+	 */
+	config = files(
+		"$projectDir/config/detekt/detekt.yml",
+		"$projectDir/config/detekt/detekt-override.yml",
+	)
 }
