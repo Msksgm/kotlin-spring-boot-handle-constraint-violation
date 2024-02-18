@@ -2,6 +2,7 @@ package com.example.kotlinspringboothandleconstraintviolation.presentation
 
 import com.example.kotlinspringboothandleconstraintviolation.presentation.model.GenericErrorModel
 import com.example.kotlinspringboothandleconstraintviolation.presentation.model.GenericErrorModelErrors
+import jakarta.validation.ConstraintViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -12,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import java.util.Locale
 
 /**
  * グローバルに例外ハンドリグし、エラーレスポンスを実現するコントローラ
@@ -117,6 +119,51 @@ class GlobalExceptionHandler {
                 is FieldError -> "${it.field}は${it.defaultMessage}"
                 else -> it.defaultMessage.toString()
             }
+        }
+        return ResponseEntity<GenericErrorModel>(
+            GenericErrorModel(
+                errors = GenericErrorModelErrors(
+                    body = messages
+                ),
+            ),
+            HttpStatus.BAD_REQUEST
+        )
+    }
+
+    /**
+     * パスパラメータまたはクエリパラメータのバリデーションエラーが発生した場合に発生させるエラーレスポンスを作成するメソッド
+     *
+     * error message を validation に利用するアノテーションに記載された message を利用する際の実装
+     *
+     * @param e
+     * @return 400 エラーのレスポンス
+     */
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun constraintViolationExceptionExceptionHandler(
+        e: ConstraintViolationException
+    ): ResponseEntity<GenericErrorModel> {
+        // ConstraintViolationException からレスポンスに利用するエラーメッセージを生成する
+        val messages = e.constraintViolations.map {
+            /**
+             * クエリパラメータをチェインケースに変換
+             *
+             * propertyPath は `@PathVariable` アノテーションで指定したパスパラメータではなく、メソッドの引数に指定したパラメータ名を取得する
+             * 例えば、以下のようなコントローラメソッドの場合、propertyPath が取得するのは、`page-number` ではなく `pageNumber` になる
+             *
+             * ```kotlin
+             * fun getArticle(@PathVariable("slug") @Max(32) slug: String): ResponseEntity<Any>
+             * ```
+             *
+             * API 仕様書と一致しなくなる可能性があるため、チェインケースに変換する。
+             * **API 仕様書におけるパスパラメータとクエリパラメータの命名規則は必ず統一**すること。
+             */
+            val chainCaseRequestParam = it.propertyPath.toString().split(
+                '.'
+            ).last().split(Regex("(?=[A-Z])")).joinToString("-") {
+                    requestParam ->
+                requestParam.lowercase(Locale.getDefault())
+            }
+            "${chainCaseRequestParam}は${it.message}"
         }
         return ResponseEntity<GenericErrorModel>(
             GenericErrorModel(
